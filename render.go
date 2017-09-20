@@ -3,25 +3,29 @@ package main
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jroimartin/gocui"
+	"github.com/rikvdh/redisui/kv/types"
 )
 
 const (
-	treeView   = "tree"
-	valueView  = "value"
-	statusView = "status"
+	treeView     = "tree"
+	valueView    = "value"
+	statusView   = "status"
+	subValueView = "subvalue"
 
 	keyPrefix = "  - "
 	dbPrefix  = " db:"
 )
 
 var (
-	currentView = treeView
-	currentDb   = 0
-	currentKey  = ""
+	currentView    = treeView
+	currentDb      = 0
+	currentKey     = ""
+	currentKeyType = types.KVTypeInvalid
 )
 
 func renderTree(g *gocui.Gui, v *gocui.View) error {
@@ -52,26 +56,101 @@ func renderTree(g *gocui.Gui, v *gocui.View) error {
 	}
 	if strings.HasPrefix(l, keyPrefix) {
 		currentKey = l[len(keyPrefix):]
-		vv, _ := g.View(valueView)
-		renderValue(vv)
+	} else if strings.HasPrefix(l, "-"+dbPrefix) || strings.HasPrefix(l, "+"+dbPrefix) {
+		currentKey = ""
+	}
+
+	vv, _ := g.View(valueView)
+	if vv != nil {
+		if err := renderValue(g, vv); err != nil {
+			sv, _ := g.View(statusView)
+			renderStatus(sv, err)
+		}
 	}
 	return nil
 }
 
-func renderValue(v *gocui.View) error {
+func dbSelect(g *gocui.Gui, v *gocui.View) error {
+	if v.Name() == treeView {
+		_, pos := v.Cursor()
+		l, err := v.Line(pos)
+		if err != nil {
+			fmt.Fprintf(v, "error: %v", err)
+			return nil
+		}
+		if strings.HasPrefix(l, "+"+dbPrefix) {
+			currentDb, err = strconv.Atoi(l[len("+"+dbPrefix):])
+			kvstore.Database(currentDb)
+			renderTree(g, v)
+		} else if strings.HasPrefix(l, "-"+dbPrefix) {
+		}
+	}
+	return nil
+}
+
+func renderValue(g *gocui.Gui, v *gocui.View) error {
 	v.Clear()
 	if currentKey != "" {
 		t, err := kvstore.Type(currentKey)
-		fmt.Fprintln(v, t, err)
-		s, err := kvstore.Get(currentKey)
-		fmt.Fprintln(v, s, err)
+		if err != nil {
+			return err
+		}
+		if currentKeyType != t {
+			currentKeyType = t
+			renderLayout(g)
+		}
+		switch t {
+		case types.KVTypeString:
+			s, err := kvstore.Get(currentKey)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(v, s)
+		case types.KVTypeMap:
+			s, err := kvstore.HKeys(currentKey)
+			if err != nil {
+				return err
+			}
+			for _, i := range s {
+				fmt.Fprintf(v, "- %v\n", i)
+			}
+			_, p := v.Cursor()
+			str, _ := v.Line(p)
+			if len(str) >= 3 {
+				renderSubValue(g, str[2:])
+			}
+		case types.KVTypeList:
+			s, err := kvstore.LGet(currentKey)
+			if err != nil {
+				return err
+			}
+			for _, i := range s {
+				fmt.Fprintf(v, "- %v\n", i)
+			}
+		}
 	} else {
 		fmt.Fprintln(v, time.Now().Format(time.Stamp), currentView)
 	}
 	return nil
 }
 
-func renderStatus(v *gocui.View) error {
+func renderSubValue(g *gocui.Gui, field string) error {
+	v, err := g.View(subValueView)
+	if err != nil {
+		return err
+	}
+	v.Clear()
+	val, err := kvstore.HGet(currentKey, field)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(v, val)
+	return nil
+}
+
+var lastErr error
+
+func renderStatus(v *gocui.View, err ...error) error {
 	v.Clear()
 	con, conerr := kvstore.Connected()
 	if con {
@@ -82,20 +161,41 @@ func renderStatus(v *gocui.View) error {
 		fmt.Fprintf(v, " disconnected (%v)", conerr)
 	}
 
+	if len(err) >= 1 {
+		lastErr = err[0]
+	}
+	if lastErr != nil {
+		fmt.Fprintf(v, "\t\tERROR: %v", lastErr)
+	}
 	return nil
 }
 
 func renderLayout(g *gocui.Gui) error {
 	sizeX, sizeY := g.Size()
-	treeSize := int(math.Floor(float64(sizeX) * 0.2))
+	treeSize = int(math.Floor(float64(sizeX) * 0.2))
 
 	_, err := g.SetView(treeView, 0, 0, treeSize, sizeY-4)
 	if err != nil {
 		return err
 	}
-	_, err = g.SetView(valueView, treeSize+1, 0, sizeX-1, sizeY-4)
-	if err != nil {
-		return err
+	if currentKeyType == types.KVTypeMap {
+		vView, err := g.SetView(valueView, treeSize+1, 0, treeSize*2, sizeY-4)
+		if err != nil {
+			return err
+		}
+		vView.Highlight = true
+		svView, err := g.SetView(subValueView, treeSize*2+1, 0, sizeX-1, sizeY-4)
+		svView.Wrap = true
+		if err != nil {
+			return err
+		}
+	} else {
+		vView, err := g.SetView(valueView, treeSize+1, 0, sizeX-1, sizeY-4)
+		if err != nil {
+			return err
+		}
+		vView.Highlight = false
+		g.DeleteView(subValueView)
 	}
 	_, err = g.SetView(statusView, 0, sizeY-3, sizeX-1, sizeY-1)
 	return err
@@ -130,7 +230,11 @@ func redraw(g *gocui.Gui, v *gocui.View) error {
 	case treeView:
 		renderTree(g, nv)
 	case valueView:
-		renderValue(nv)
+		err := renderValue(g, nv)
+		if err != nil {
+			sv, _ := g.View(statusView)
+			renderStatus(sv, err)
+		}
 	}
 	return nil
 }

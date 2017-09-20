@@ -8,6 +8,7 @@ import (
 // KV represents a interface with functions to get and set persistent data
 type KV interface {
 	Databases() (int, error)
+	Database(int) error
 	Connected() (bool, error)
 	Type(string) (types.KVType, error)
 
@@ -20,6 +21,8 @@ type KV interface {
 	HGet(string, string) (string, error)
 	HSet(string, string, interface{}) error
 	HDel(string, string) error
+
+	LGet(string) ([]string, error)
 }
 
 const (

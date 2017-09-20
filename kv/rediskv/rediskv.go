@@ -66,6 +66,22 @@ func (r Rediskv) HDel(key, field string) error {
 	return err
 }
 
+func (r Rediskv) LGet(key string) ([]string, error) {
+	t, err := redis.String(r.redis.Do("TYPE", key))
+	if err != nil {
+		return nil, err
+	}
+	switch t {
+	case "list":
+		return redis.Strings(r.redis.Do("LRANGE", key, "0", "-1"))
+	case "set":
+		return redis.Strings(r.redis.Do("SMEMBERS", key))
+	case "zset":
+		return redis.Strings(r.redis.Do("ZRANGE", key, "0", "-1"))
+	}
+	return nil, fmt.Errorf("invalid type: %s", t)
+}
+
 // Databases requested from config
 func (r Rediskv) Databases() (int, error) {
 	ret, err := redis.Values(r.redis.Do("CONFIG", "GET", "databases"))
@@ -73,6 +89,11 @@ func (r Rediskv) Databases() (int, error) {
 		return redis.Int(ret[1], err)
 	}
 	return 0, err
+}
+
+func (r Rediskv) Database(db int) error {
+	_, err := r.redis.Do("SELECT", db)
+	return err
 }
 
 func (r Rediskv) Connected() (bool, error) {
@@ -98,7 +119,7 @@ func (r Rediskv) redisTypeToKVType(t string) (types.KVType, error) {
 		return types.KVTypeMap, nil
 	case "string":
 		return types.KVTypeString, nil
-	case "list":
+	case "list", "set", "zset":
 		return types.KVTypeList, nil
 	}
 	return types.KVTypeInvalid, fmt.Errorf("invalid type: %s", t)

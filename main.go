@@ -13,19 +13,13 @@ import (
 )
 
 var (
-	no256   *bool
-	host    *string
-	port    *uint
-	kvtype  *string
-	kvstore kv.KV
+	no256    = flag.Bool("no256", false, "Disable 256-color")
+	host     = flag.String("h", "localhost", "Host to connect to")
+	port     = flag.Uint("p", 6379, "Port to connect to")
+	kvtype   = flag.String("type", "redis", "KV-storage type")
+	kvstore  kv.KV
+	treeSize int
 )
-
-func init() {
-	no256 = flag.Bool("no256", false, "Disable 256-color")
-	host = flag.String("h", "localhost", "Host to connect to")
-	port = flag.Uint("p", 6379, "Port to connect to")
-	kvtype = flag.String("type", "redis", "KV-storage type")
-}
 
 func exit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
@@ -63,6 +57,9 @@ func main() {
 	if err := g.SetKeybinding("", gocui.KeyArrowLeft, gocui.ModNone, switchViewLeft); err != nil {
 		panic(err)
 	}
+	if err := g.SetKeybinding("", gocui.KeySpace, gocui.ModNone, dbSelect); err != nil {
+		log.Fatalf("error: %v", err)
+	}
 	if err := g.SetKeybinding("", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		v.MoveCursor(0, -1, true)
 		return redraw(g, v)
@@ -77,7 +74,7 @@ func main() {
 	}
 
 	sizeX, sizeY := g.Size()
-	treeSize := int(math.Floor(float64(sizeX) * 0.2))
+	treeSize = int(math.Floor(float64(sizeX) * 0.2))
 	treeView, err := g.SetView(treeView, 0, 0, treeSize, sizeY-4)
 	if err != nil && err != gocui.ErrUnknownView {
 		panic(err)
@@ -92,7 +89,9 @@ func main() {
 		panic(err)
 	}
 	valueView.Wrap = true
-	renderValue(valueView)
+	valueView.SelBgColor = gocui.ColorWhite
+	valueView.SelFgColor = gocui.ColorBlack
+	renderValue(g, valueView)
 
 	statusView, err := g.SetView(statusView, 0, sizeY-3, sizeX-1, sizeY-1)
 	if err != nil && err != gocui.ErrUnknownView {
