@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/garyburd/redigo/redis"
-	"github.com/rikvdh/redisui/kv/types"
+	"github.com/rikvdh/kvui/kv/types"
 )
 
 type redisCon interface {

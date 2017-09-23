@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/jroimartin/gocui"
-	"github.com/rikvdh/redisui/kv"
+	"github.com/rikvdh/kvui/kv"
 )
 
 var (

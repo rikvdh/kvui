@@ -4,8 +4,8 @@ import (
 	"net"
 	"testing"
 
-	"github.com/rikvdh/redisui/kv/ramkv"
-	"github.com/rikvdh/redisui/kv/rediskv"
+	"github.com/rikvdh/kvui/kv/ramkv"
+	"github.com/rikvdh/kvui/kv/rediskv"
 )
 
 func TestKvRedis(t *testing.T) {

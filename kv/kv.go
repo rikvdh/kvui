@@ -1,8 +1,8 @@
 package kv
 
 import (
-	"github.com/rikvdh/redisui/kv/rediskv"
-	"github.com/rikvdh/redisui/kv/types"
+	"github.com/rikvdh/kvui/kv/rediskv"
+	"github.com/rikvdh/kvui/kv/types"
 )
 
 // KV represents a interface with functions to get and set persistent data
