@@ -4,7 +4,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/rikvdh/kvui/kv/ramkv"
 	"github.com/rikvdh/kvui/kv/rediskv"
 )
 
@@ -24,7 +23,7 @@ func TestKvRedis(t *testing.T) {
 	}
 }
 
-func TestKvRAM(t *testing.T) {
+/*func TestKvRAM(t *testing.T) {
 	r, err := New(TypeRAM, "")
 	if err != nil {
 		t.Error("Error must not be nil")
@@ -32,7 +31,7 @@ func TestKvRAM(t *testing.T) {
 	if _, ok := r.(*ramkv.Ramkv); !ok {
 		t.Error("Reply must be a rediskv")
 	}
-}
+}*/
 
 func TestInvalidKV(t *testing.T) {
 	defer func() {

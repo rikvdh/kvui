@@ -7,11 +7,15 @@ import (
 
 type redisMock struct {
 	Result interface{}
-	Err    error
+	err    error
 }
 
 func (r redisMock) Do(cmd string, args ...interface{}) (interface{}, error) {
-	return r.Result, r.Err
+	return r.Result, r.err
+}
+
+func (r redisMock) Err() error {
+	return r.err
 }
 
 func TestGetSet(t *testing.T) {
@@ -20,7 +24,7 @@ func TestGetSet(t *testing.T) {
 	kvStorage.redis = &mock
 
 	mock.Result = nil
-	mock.Err = nil
+	mock.err = nil
 
 	err := kvStorage.Set("value", `"{"name": "simulator", "value": "20"}"`)
 	if err != nil {
@@ -28,7 +32,7 @@ func TestGetSet(t *testing.T) {
 	}
 
 	mock.Result = `"{"name": "simulator", "value": "20"}"`
-	mock.Err = nil
+	mock.err = nil
 
 	value, err := kvStorage.Get("value")
 	if err != nil {
@@ -47,7 +51,7 @@ func TestDel(t *testing.T) {
 	kvStorage.redis = &mock
 
 	mock.Result = nil
-	mock.Err = nil
+	mock.err = nil
 
 	err := kvStorage.Set("value", `{"name": "simulator", "value": "20"}`)
 	if err != nil {
@@ -55,7 +59,7 @@ func TestDel(t *testing.T) {
 	}
 
 	mock.Result = `{"name": "simulator", "value": "20"}`
-	mock.Err = nil
+	mock.err = nil
 
 	value, err := kvStorage.Get("value")
 	if err != nil {
@@ -67,7 +71,7 @@ func TestDel(t *testing.T) {
 	}
 
 	mock.Result = nil
-	mock.Err = nil
+	mock.err = nil
 
 	err = kvStorage.Del("value")
 	if err != nil {
@@ -75,7 +79,7 @@ func TestDel(t *testing.T) {
 	}
 
 	mock.Result = nil
-	mock.Err = nil
+	mock.err = nil
 
 	value, err = kvStorage.Get("value")
 	if err == nil {
@@ -93,7 +97,7 @@ func TestHGetHSet(t *testing.T) {
 	kvStorage.redis = &mock
 
 	mock.Result = nil
-	mock.Err = nil
+	mock.err = nil
 
 	err := kvStorage.HSet("value", "name", "simulator")
 	if err != nil {
@@ -101,7 +105,7 @@ func TestHGetHSet(t *testing.T) {
 	}
 
 	mock.Result = "simulator"
-	mock.Err = nil
+	mock.err = nil
 
 	value, err := kvStorage.HGet("value", "name")
 	if err != nil {
@@ -119,7 +123,7 @@ func TestHDel(t *testing.T) {
 	kvStorage.redis = &mock
 
 	mock.Result = nil
-	mock.Err = nil
+	mock.err = nil
 
 	err := kvStorage.HSet("value", "name", "simulator")
 	if err != nil {
@@ -127,7 +131,7 @@ func TestHDel(t *testing.T) {
 	}
 
 	mock.Result = "simulator"
-	mock.Err = nil
+	mock.err = nil
 
 	value, err := kvStorage.HGet("value", "name")
 	if err != nil {
@@ -139,7 +143,7 @@ func TestHDel(t *testing.T) {
 	}
 
 	mock.Result = nil
-	mock.Err = nil
+	mock.err = nil
 
 	err = kvStorage.HDel("value", "name")
 	if err != nil {
@@ -153,7 +157,7 @@ func TestKeys(t *testing.T) {
 	kvStorage.redis = &mock
 
 	mock.Result = nil
-	mock.Err = fmt.Errorf("test-err")
+	mock.err = fmt.Errorf("test-err")
 
 	k, err := kvStorage.Keys("*")
 	if err.Error() != "test-err" {
